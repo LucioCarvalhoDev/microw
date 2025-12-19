@@ -1,97 +1,101 @@
 # Microw
 
-**Microw** é um utilitário de linha de comando (CLI) desenvolvido em Python para automatizar a conversão de dados tabulares (como arquivos CSV ou TXT) em arquivos de configuração `.ini` compatíveis com o softphone **MicroSIP** e seus derivados.
+Microw is a command-line interface (CLI) utility developed in Python to automate the conversion of tabular data (such as CSV or TXT files) into `.ini` configuration files compatible with the *MicroSIP* softphone and its derivatives.
 
-Esta ferramenta é ideal para administradores de sistemas VoIP, suporte técnico e desenvolvedores que precisam realizar o provisionamento em massa de ramais de forma rápida e precisa.
+This tool is ideal for VoIP system administrators, technical support teams, and developers who need to perform bulk provisioning of extensions quickly and accurately.
 
-## Funcionalidades
+## Features
 
-* **Mapeamento Flexível:** Define a ordem das colunas do seu arquivo de entrada via linha de comando.
-* **Templates Customizáveis:** Permite o uso de modelos de conta personalizados para diferentes cenários de rede.
-* **Padrões de Label:** Gere nomes de exibição (DisplayName) dinâmicos baseados nos dados de entrada.
-* **Conta Ghost:** Opção para adicionar um perfil "Desconectado" como primeira conta da lista.
-* **Suporte a Delimitadores:** Funciona com vírgulas, tabs (`\t`), pontos e vírgulas, etc.
+* **Flexible Mapping:** Define the column order of your input file via the command line.
+* **Customizable Templates:** Use custom account templates for different network scenarios.
+* **Label Patterns:** Generate dynamic display names (DisplayName) based on input data.
+* **Ghost Account:** Option to add a "Disconnected" profile as the first account in the list.
+* **Delimiter Support:** Works with commas, tabs (`\t`), semicolons, etc.
 
-## Como Usar
+## How to Use
 
-### Pré-requisitos
+### Prerequisites
 
-* Python 3.x instalado.
+* Python 3.x installed.
 
-### Instalação
+### Installation
 
-Basta clonar o repositório ou baixar o arquivo `microw.py`:
+Simply clone the repository or download the `microw.py` file:
 
 ```bash
 git clone https://github.com/LucioCarvalhoDev/microw.git
 cd microw
+
 ```
 
-### Execução Básica
+### Basic Execution
 
-Supondo que você tenha um arquivo `seus_dados.csv` com o formato `ramal,label`:
+Assuming you have a file named `your_data.csv` with the format `extension,label`:
 
 ```bash
-python3 microw.py --input seus_dados.csv --output accounts.ini
+python3 microw.py --input your_data.csv --output accounts.ini
+
 ```
 
 ---
 
-## Referência de Argumentos
+## Argument Reference
 
-| Argumento | Padrão | Descrição |
+| Argument | Default | Description |
 | --- | --- | --- |
-| `--format` | `"ramal label"` | Ordem das colunas (use `_` para ignorar colunas). |
-| `--input` | `./input.txt` | Caminho do arquivo de origem. |
-| `--output` | `./output.ini` | Caminho do arquivo `.ini` gerado. |
-| `--delimiter` | `,` | Caractere separador de colunas. |
-| `--label-pattern` | `label` | Template para o nome de exibição (ex: `"ramal - label"`). |
-| `--add-ghost` | `False` | Adiciona conta de 'Desconectado' no topo. |
-| `--set-template` | `None` | Caminho para um arquivo de template de conta customizado. |
+| `--format` | `"extension label"` | Column order (use `_` to ignore columns). |
+| `--input` | `./input.txt` | Path to the source file. |
+| `--output` | `./output.ini` | Path to the generated `.ini` file. |
+| `--delimiter` | `,` | Column separator character. |
+| `--label-pattern` | `label` | Template for the display name (e.g., `"extension - label"`). |
+| `--add-ghost` | `False` | Adds a 'Disconnected' account at the top. |
+| `--set-template` | `None` | Path to a custom account template file. |
 
 ---
 
-## Exemplos de Uso
+## Usage Examples
 
-### 1. Formato CSV com Ponto e Vírgula
+### 1. CSV Format with Semicolons
 
-Se o seu arquivo segue o padrão `ID;Ramal;Nome;Setor` e você quer ignorar o ID:
+If your file follows the pattern `ID;Extension;Name;Department` and you want to ignore the ID:
 
 ```bash
-python3 microw.py --delimiter ";" --format "_ ramal label setor"
+python3 microw.py --delimiter ";" --format "_ extension label department"
 
 ```
 
-### 2. Customizando o Nome de Exibição
+### 2. Customizing the Display Name
 
-Para que no MicroSIP o nome apareça como `Ramal | Nome (Setor)`:
+To make the name appear in MicroSIP as `Extension | Name (Department)`:
 
 ```bash
-python3 microw.py --format "ramal label setor" --label-pattern "ramal | label (setor)"
+python3 microw.py --format "extension label department" --label-pattern "extension | label (department)"
 
 ```
 
-### 3. Usando um Template de Conta Específico
+### 3. Using a Specific Account Template
 
-Se você precisa de configurações de transporte (TLS/TCP) ou portas diferentes, crie um arquivo de template e aponte-o:
+If you need different transport settings (TLS/TCP) or ports, create a template file and point to it:
 
 ```bash
-python3 microw.py --set-template meu_modelo.txt --input ramais.txt
+python3 microw.py --set-template my_template.txt --input extensions.txt
 
 ```
 
 ---
 
-## Licença e Créditos
+## License and Credits
 
-Desenvolvido por **Lúcio Carvalho Almeida**.
+Developed by **Lúcio Carvalho Almeida**.
 
-Este projeto é **Software Livre** (Open Source).
+This project is **Open Source**.
 
-**Contato:** [luciocarvalhodev@gmail.com](mailto:luciocarvalhodev@gmail.com)
+**Contact:** [luciocarvalhodev@gmail.com](mailto:luciocarvalhodev@gmail.com)
+
+---
+
+Feel free to contribute with Pull Requests!
 
 ---
 
-Sinta-se à vontade para contribuir com Pull Requests!
-
----
+Você gostaria que eu ajudasse a revisar o código do `microw.py` ou a criar um arquivo de exemplo de template para o repositório?
