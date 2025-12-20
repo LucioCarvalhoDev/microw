@@ -97,5 +97,3 @@ This project is **Open Source**.
 Feel free to contribute with Pull Requests!
 
 ---
-
-Você gostaria que eu ajudasse a revisar o código do `microw.py` ou a criar um arquivo de exemplo de template para o repositório?
