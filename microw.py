@@ -2,62 +2,36 @@ import sys
 from enum import Enum
 from pathlib import Path
 import codecs
+import re
+from textwrap import wrap
 
-MAN = """
+MAN_DESCRIPTION = """
 NOME
-    microw - convert data to MicroSIP accounts
+microw - convert data to MicroSIP accounts
 
 USO
-    python3 microw.py [OPÇÔES]
+python3 microw.py [OPÇÔES]
 
 DESCRIÇÂO
-    Utilitário para conversão de dados tabulares (CSV, TXT) em arquivos de 
-    configuração (.ini) para o softphone MicroSIP e variantes.
+Utilitário para conversão de dados tabulares (CSV, TXT) em arquivos de 
+configuração (.ini) para o softphone MicroSIP e variantes.
 
-    Feito por Lúcio Carvalho Almeida, Free Software.
+Feito por Lúcio Carvalho Almeida, Free Software."""
 
-ARGUMENTOS
-    --format <string>       Define a ordem das colunas no arquivo de entrada.
-                            Use nomes de variáveis (ex: ramal, password) ou
-                            '_' para ignorar uma coluna específica.
-                            Padrão: "ramal label"
-                            Variáveis especiais: 'name', 'label', 'password',
-                            'server'
-
-    --input <path>          Caminho do arquivo de origem dos dados.
-                            Padrão: "./input.txt"
-
-    --output <path>         Caminho onde o arquivo .ini será gerado.
-                            Padrão: "./output.ini"
-
-    --delimiter <sep>       Caractere separador de colunas (aceita '\\t', ' ').
-                            Padrão: ","
-
-    --label-pattern <q>     Template para customizar o nome de exibição.
-                            Substitui nomes de variáveis pelos seus valores.
-                            Ex: "ramal - label (setor)"
-
-    --add-ghost             Se presente, adiciona uma conta de 'Desconectado'
-                            como o primeiro perfil da lista.
-
-    --set-template <t>      Fornece o caminho para o arquivo <t> que será
-                            usado no lugar de ACCOUNT_TEMPLATE
-
-    --read-encoding <ienc>  Define a codificação de leitura
-
+MAN_FOOTER = """
 EXEMPLOS
-    1. Formato padrão com separador de ponto e vírgula:
-        python3 microw.py --delimiter ";"
+1. Formato padrão com separador de ponto e vírgula:
+    python3 microw.py --delimiter ";"
 
-    2. Ignorando a 1ª coluna e formatando o nome de exibição:
-        python3 microw.py --format "_ ramal label setor" --label-pattern "label [setor]"
+2. Ignorando a 1ª coluna e formatando o nome de exibição:
+    python3 microw.py --format "_ ramal label setor" --label-pattern "label [setor]"
 
-    3. Usando um arquivo específico e adicionando conta fantasma:
-        python3 microw.py --input lista_vendas.csv --add-ghost
+3. Usando um arquivo específico e adicionando conta fantasma:
+    python3 microw.py --input lista_vendas.csv --add-ghost
 
 CREDITOS
-    Desenvolvido por Lúcio Carvalho Almeida, Open Source.
-    Contato em luciocarvalhodev@gmail.com.
+Desenvolvido por Lúcio Carvalho Almeida, Open Source.
+Contato em luciocarvalhodev@gmail.com.
 """
 
 ACCOUNT_TEMPLATE = r'''
@@ -96,102 +70,142 @@ password=1234
 authID=0000
 '''
 
-class SchemaValue(Enum):
-    Argument = 1
-    Bool = 2
+class Flags(Enum):
+    format = "format"
+    input = "input"
+    add_ghost = "add-ghost"
+    delimiter = "delimiter"
+    output = "output"
+    label_pattern = "label-pattern"
+    help = "help"
+    set_template = "set-template"
+    read_encoding = "read-encoding"
+    write_encoding = "write-encoding"
+    sort_by = "sort-by"
+    sort = "sort"
 
+    @classmethod
+    def from_str(cls, name: str):
+        normalized_flag_name = name.replace("-", "_")
+        if not normalized_flag_name in cls.__members__:
+            error_string = f"O argumento '--{name}' não corresponde a uma flag válida."
+            raise ValueError(error_string)    
+        return cls[normalized_flag_name]
+    
+    def to_str(self):
+        return self._value_
+
+# Quantidade de argumentos esperados
+class FlagSchema(Enum):
+    NoArgument = 0
+    Argument = 1
+
+# Os métodos dessa classe recebem instancias de Flags
 class Config:
     def __init__(self):
-        self.config = {
-            "format": {
-                "default": "ramal label",
-                "schema": SchemaValue.Argument,
-                "value": None
-            },
-            "input": {
-                "default": "./input.txt",
-                "schema": SchemaValue.Argument,
-                "value": None
-            },
-            "add-ghost": {
-                "default": False,
-                "schema": SchemaValue.Bool,
-                "value": None
-            },
-            "delimiter": {
-                "default": ",",
-                "schema": SchemaValue.Argument,
-                "value": None
-            },
-            "output": {
-                "default": "./output.ini",
-                "schema": SchemaValue.Argument,
-                "value": None
-            },
-            "label-pattern": {
-                "default": "label",
-                "schema": SchemaValue.Argument,
-                "value": None
-            },
-            "help": {
-                "default": None,
-                "schema": SchemaValue.Bool,
-                "value": None
-            },
-            "set-template": {
-                "default": None,
-                "schema": SchemaValue.Argument,
-                "value": None
-            }
+        self.flags = {}
+        self.define_flag(Flags.format,FlagSchema.Argument, "ramal label", """Define a ordem das colunas no arquivo de entrada. Use nomes de variáveis (ex: ramal, password) ou '_' para ignorar uma coluna específica.""")
+        self.define_flag(Flags.input, FlagSchema.Argument, "./input.txt", """Caminho do arquivo de origem dos dados.""")
+        self.define_flag(Flags.delimiter, FlagSchema.Argument, ",", """Define qual string sera considerada como seprador das colunas de cada linha do input.""")
+        self.define_flag(Flags.add_ghost, FlagSchema.NoArgument, False, """Se presente, adiciona uma conta de 'Desconectado' como o primeiro perfil da lista.""")
+        self.define_flag(Flags.output, FlagSchema.Argument, "./output.ini", """Caminho onde o arquivo .ini será gerado.""")
+        self.define_flag(Flags.label_pattern, FlagSchema.Argument, "label", """Template para customizar o nome de exibição. Substitui nomes de variáveis pelos seus valores.""")
+        self.define_flag(Flags.help, FlagSchema.NoArgument, False, """Exibe o manual.""")
+        self.define_flag(Flags.set_template, FlagSchema.Argument, None, """Forcene o caminho para um arquivo que servira como template.""")
+        self.define_flag(Flags.read_encoding, FlagSchema.Argument, "utf-8", "Codificação do arquivo lido por '--input'")
+        self.define_flag(Flags.write_encoding, FlagSchema.Argument, "utf-8", "Codificação do arquivos gerados.")
+        self.define_flag(Flags.sort, FlagSchema.NoArgument, True, """Ordena as contas no arquivo final.""")
+        self.define_flag(Flags.sort_by, FlagSchema.Argument, "ramal", """Define qual a coluna usada para ordenação.""")
+
+    def generate_flags_man(self):
+        res = [MAN_DESCRIPTION]
+        for flag in Flags:
+            res.append(self.flag_man(flag))
+
+        res.append(MAN_FOOTER)
+
+        return "\n".join(res)
+
+    def flag_man(self, flag: Flags):
+        ident = "    " * 5
+
+        lines = wrap(self.flags[flag]["man"], 60)
+        lines[0] = (f"--{flag.to_str()}{ident}"[0:len(ident)] + lines[0])
+
+        for i in range(len(lines)-1):
+            lines[i+1] = ident + lines[i+1]
+        
+        return "\n".join(lines)
+
+    def load_args(self, args: list[str]):
+        while len(args):
+            argument = args.pop(0)
+            if argument[:2] == "--":
+                argument = argument[2:]
+            
+            flag = Flags.from_str(argument)
+            
+            if self.schema(flag) == FlagSchema.Argument:
+                if len(args) == 0:
+                    msg_error = f"Flag '--{argument}' exige um argumento."
+                    raise ValueError(msg_error)
+                self.set(flag, codecs.decode(args.pop(0), "unicode_escape"))
+            else:
+                self.set(flag, not self.getDefault(flag))
+    
+    def define_flag(self, flag: Flags, schema: FlagSchema, default, man: str):
+        self.flags[flag] = {
+            "schema": schema,
+            "default": default,
+            "man": man
         }
     
-    def _validate_setting(self, setting):
-        if not setting in self.config:
-            raise ValueError(f"'{setting}' is not a valid option.")
+    def _validate_setting(self, setting: Flags):
+        if not isinstance(setting, Flags):
+            raise ValueError(f"'{setting}' is not a valid flag.")
+
+        return setting.value
     
     def get(self, setting):
         self._validate_setting(setting)
-        return self.config[setting]["value"] or self.config[setting]["default"]
+        return self.flags[setting].get("value", self.flags[setting]["default"])
+    
+    def getDefault(self, setting):
+        self._validate_setting(setting)
+        return self.flags[setting]["default"]
 
     def set(self, setting, value):
         self._validate_setting(setting)
-        self.config[setting]["value"] = value
+        self.flags[setting]["value"] = value
     
     def schema(self, setting):
         self._validate_setting(setting)
-        return self.config[setting]["schema"]
+        return self.flags[setting]["schema"]
 
-config = Config()
 
 def main():
-    # Faz o parse manual das flags e argumentos
-    args = sys.argv[1:]
-    while len(args):
-        argument = args.pop(0)
-        if argument[:2] == "--":
-            argument = argument[2:]
-        
-        if argument == "help":
-            print(MAN)
-            return
-        
-        if config.schema(argument) == SchemaValue.Argument:
-            config.set(argument, codecs.decode(args.pop(0), "unicode_escape"))
-        else:
-            config.set(argument, not config.get(argument))
+    config = Config()
+    config.load_args(sys.argv[1:])
+    
+    if config.get(Flags.help):
+        print(config.generate_flags_man())
+        return
 
-    output_file = Path(config.get("output"))
-    input_file = Path(config.get("input"))
-    input_lines = [line.strip() for line in input_file.open("r", encoding="utf-8").readlines()]
+    output_file = Path(config.get(Flags.output))
+    input_file = Path(config.get(Flags.input))
+    if not input_file.exists():
+        error_msg = f"Arquivo de input especificado '{input_file.name}' não encontrado."
+        raise ValueError(error_msg)
+    input_lines = [line.strip() for line in input_file.open("r", encoding=config.get(Flags.read_encoding)).readlines()]
 
     accounts_settings = []
-    format_vars = config.get("format").split(" ")
-    label_pattern = config.get("label-pattern")
+    format_vars = config.get(Flags.format).split(" ")
+    label_pattern = config.get(Flags.label_pattern)
 
     for line in input_lines:
         if not line: continue
         
-        data = [field.strip() for field in line.split(config.get("delimiter"))]
+        data = [field.strip() for field in line.split(config.get(Flags.delimiter))]
         account_dict = {}
 
         # Mapeia os dados ignorando o caractere '_'
@@ -201,28 +215,30 @@ def main():
                 account_dict[var_name] = data[i]
         
         # Customização do $label
-        if label_pattern:
-            pattern_parts = label_pattern.split(" ")
+        formated_pattern = label_pattern
+        for pattern_part in re.finditer(r"[a-zA-Z]+", label_pattern):
+            pattern = pattern_part.group()
+            if pattern in format_vars:
+                formated_pattern = formated_pattern.replace(pattern, data[format_vars.index(pattern)]) 
 
-            # Se a parte for uma variável conhecida, substitui pelo valor
-            new_label = " ".join([account_dict.get(name, name) for name in pattern_parts])
-            account_dict["label"] = new_label
         
+        account_dict["label"] = formated_pattern
         accounts_settings.append(account_dict)
+    
+    if config.get(Flags.sort) : accounts_settings.sort(key=lambda account : account[config.get(Flags.sort_by)])
 
     result = ""
 
-    if config.get("add-ghost"):
+    if config.get(Flags.add_ghost):
         result += GHOST_TEMPLATE
     
     current_account_template = ACCOUNT_TEMPLATE
 
-    if not config.get("set-template") is None:
-        current_account_template = Path(config.get("set-template")).read_text(encoding="utf-8")
+    if not config.get(Flags.set_template) is None:
+        current_account_template = Path(config.get(Flags.set_template)).read_text(encoding=config.get(Flags.read_encoding))
 
     for account in accounts_settings:
         new_entry = current_account_template
-        # Substitui todas as variáveis encontradas
         for var_name, value in account.items():
             new_entry = new_entry.replace("$" + var_name, str(value))
         
@@ -230,13 +246,12 @@ def main():
 
     result = result.strip()
 
-    # Numeração sequencial das contas [Account1], [Account2]...
     id = 1
     while "Account_" in result:
         result = result.replace("Account_", f"Account{id}", 1)
         id += 1
 
-    output_file.write_text(result, encoding="utf-8")
+    output_file.write_text(result, encoding=config.get(Flags.write_encoding))
     print(f"Sucesso: {id-1} contas criadas em '{output_file}'.")
 
 main()
