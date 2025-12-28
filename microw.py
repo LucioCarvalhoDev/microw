@@ -43,20 +43,6 @@ domain=$server
 username=$ramal
 password=$password
 authID=$ramal
-displayName=
-dialingPrefix=
-dialPlan=
-hideCID=0
-voicemailNumber=
-transport=udp
-publicAddr=
-SRTP=
-registerRefresh=300
-keepAlive=15
-publish=0
-ICE=0
-allowRewrite=0
-disableSessionTimer=0
 '''
 
 GHOST_TEMPLATE = r'''
@@ -71,11 +57,11 @@ authID=0000
 '''
 
 class Flags(Enum):
-    format = "format"
-    input = "input"
+    columns = "columns"
+    input_file = "input-file"
     add_ghost = "add-ghost"
     delimiter = "delimiter"
-    output = "output"
+    output_file = "output-file"
     label_pattern = "label-pattern"
     help = "help"
     set_template = "set-template"
@@ -83,6 +69,8 @@ class Flags(Enum):
     write_encoding = "write-encoding"
     sort_by = "sort-by"
     sort = "sort"
+    set_password = "set-password"
+    set_server = "set-server"
 
     @classmethod
     def from_str(cls, name: str):
@@ -104,18 +92,20 @@ class FlagSchema(Enum):
 class Config:
     def __init__(self):
         self.flags = {}
-        self.define_flag(Flags.format,FlagSchema.Argument, "ramal label", """Define a ordem das colunas no arquivo de entrada. Use nomes de variáveis (ex: ramal, password) ou '_' para ignorar uma coluna específica.""")
-        self.define_flag(Flags.input, FlagSchema.Argument, "./input.txt", """Caminho do arquivo de origem dos dados.""")
-        self.define_flag(Flags.delimiter, FlagSchema.Argument, ",", """Define qual string sera considerada como seprador das colunas de cada linha do input.""")
-        self.define_flag(Flags.add_ghost, FlagSchema.NoArgument, False, """Se presente, adiciona uma conta de 'Desconectado' como o primeiro perfil da lista.""")
-        self.define_flag(Flags.output, FlagSchema.Argument, "./output.ini", """Caminho onde o arquivo .ini será gerado.""")
+        self.define_flag(Flags.columns,FlagSchema.Argument, "ramal label", """Define a ordem das colunas no arquivo de entrada. Use nomes de variáveis (ex: ramal, password) ou '_' para ignorar uma coluna específica.""")
+        self.define_flag(Flags.set_password, FlagSchema.Argument, None, "Quando presente determina uma única senha para ser usada por todas as contas.")
+        self.define_flag(Flags.set_server, FlagSchema.Argument, None, "Quando presente determina o servidor de todas as contas.")
+        self.define_flag(Flags.delimiter, FlagSchema.Argument, ",", """Define qual string será considerada como seprador das colunas de cada linha do input.""")
         self.define_flag(Flags.label_pattern, FlagSchema.Argument, "label", """Template para customizar o nome de exibição. Substitui nomes de variáveis pelos seus valores.""")
         self.define_flag(Flags.help, FlagSchema.NoArgument, False, """Exibe o manual.""")
-        self.define_flag(Flags.set_template, FlagSchema.Argument, None, """Forcene o caminho para um arquivo que servira como template.""")
+        self.define_flag(Flags.add_ghost, FlagSchema.NoArgument, False, """Se presente, adiciona uma conta de 'Desconectado' como o primeiro perfil da lista.""")
+        self.define_flag(Flags.set_template, FlagSchema.Argument, None, """Fornece o caminho para um arquivo que servira como template.""")
+        self.define_flag(Flags.input_file, FlagSchema.Argument, "./input.txt", """Caminho do arquivo de origem dos dados.""")
+        self.define_flag(Flags.output_file, FlagSchema.Argument, "./output.ini", """Caminho onde o arquivo .ini será gerado.""")
         self.define_flag(Flags.read_encoding, FlagSchema.Argument, "utf-8", "Codificação do arquivo lido por '--input'")
         self.define_flag(Flags.write_encoding, FlagSchema.Argument, "utf-8", "Codificação do arquivos gerados.")
-        self.define_flag(Flags.sort, FlagSchema.NoArgument, True, """Ordena as contas no arquivo final.""")
-        self.define_flag(Flags.sort_by, FlagSchema.Argument, "ramal", """Define qual a coluna usada para ordenação.""")
+        self.define_flag(Flags.sort, FlagSchema.NoArgument, True, """Ordena as contas no arquivo final. Caso não presente preservará a ordem das linhas do input.""")
+        self.define_flag(Flags.sort_by, FlagSchema.Argument, "ramal", """Define qual coluna será usada para ordenação alfabética.""")
 
     def generate_flags_man(self):
         res = [MAN_DESCRIPTION]
@@ -191,15 +181,15 @@ def main():
         print(config.generate_flags_man())
         return
 
-    output_file = Path(config.get(Flags.output))
-    input_file = Path(config.get(Flags.input))
+    output_file = Path(config.get(Flags.output_file))
+    input_file = Path(config.get(Flags.input_file))
     if not input_file.exists():
         error_msg = f"Arquivo de input especificado '{input_file.name}' não encontrado."
         raise ValueError(error_msg)
     input_lines = [line.strip() for line in input_file.open("r", encoding=config.get(Flags.read_encoding)).readlines()]
 
     accounts_settings = []
-    format_vars = config.get(Flags.format).split(" ")
+    format_vars = config.get(Flags.columns).split(" ")
     label_pattern = config.get(Flags.label_pattern)
 
     for line in input_lines:
@@ -221,7 +211,6 @@ def main():
             if pattern in format_vars:
                 formated_pattern = formated_pattern.replace(pattern, data[format_vars.index(pattern)]) 
 
-        
         account_dict["label"] = formated_pattern
         accounts_settings.append(account_dict)
     
@@ -236,6 +225,12 @@ def main():
 
     if not config.get(Flags.set_template) is None:
         current_account_template = Path(config.get(Flags.set_template)).read_text(encoding=config.get(Flags.read_encoding))
+    
+    if not config.get(Flags.set_password) is None:
+        current_account_template = current_account_template.replace("$password", config.get(Flags.set_password))
+    
+    if not config.get(Flags.set_server) is None:
+        current_account_template = current_account_template.replace("$server", config.get(Flags.set_server))
 
     for account in accounts_settings:
         new_entry = current_account_template
@@ -254,4 +249,5 @@ def main():
     output_file.write_text(result, encoding=config.get(Flags.write_encoding))
     print(f"Sucesso: {id-1} contas criadas em '{output_file}'.")
 
-main()
+if __name__ == "__main__":
+    main()
