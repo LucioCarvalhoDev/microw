@@ -105,7 +105,7 @@ class Config:
         self.define_flag(flag=Flags.OUTPUT_FILE, schema=FlagSchema.Argument, default="./output.ini", man="""Caminho onde o arquivo .ini será gerado.""")
         self.define_flag(flag=Flags.READ_ENCODING, schema=FlagSchema.Argument, default="utf-8", man="Codificação do arquivo lido por '--input'")
         self.define_flag(flag=Flags.WRITE_ENCODING, schema=FlagSchema.Argument, default="utf-8", man="Codificação do arquivos gerados.")
-        self.define_flag(flag=Flags.SORT, schema=FlagSchema.NoArgument, default=True, man="""Ordena as contas no arquivo final. Caso não presente preservará a ordem das linhas do input.""")
+        self.define_flag(flag=Flags.SORT, schema=FlagSchema.NoArgument, default=False, man="""Ordena as contas no arquivo final. Caso não presente preservará a ordem das linhas do input.""")
         self.define_flag(flag=Flags.SORT_BY, schema=FlagSchema.Argument, default="ramal", man="""Define qual coluna será usada para ordenação alfabética.""")
         self.define_flag(flag=Flags.DENY_INCOMING, schema=FlagSchema.Argument, default="button", man="""Define se o aplicativo irá rejeitar ligações automaticamente.\nValores possíveis: all, no, server, user, button""")
         self.define_flag(flag=Flags.AUTO_ANSWER, schema=FlagSchema.Argument, default="button", man="""Habilita o atendimento automático de chamadas.\nValores possíveis: all, no, button""")
