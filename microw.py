@@ -55,6 +55,9 @@ password=1234
 authID=0000
 '''
 
+VALID_AUTO_ANSWER_VALUES = ["all", "no", "button"]
+VALID_DENY_INCOMING_VALUES = ["all", "no", "server", "user", "button"]
+
 class Flags(Enum):
     COLUMNS = "columns"
     DELIMITER = "delimiter"
@@ -103,7 +106,7 @@ class Config:
         self.define_flag(flag=Flags.SET_TEMPLATE, schema=FlagSchema.Argument, default=None, man="""Fornece o caminho para um arquivo que servira como template.""")
         self.define_flag(flag=Flags.INPUT_FILE, schema=FlagSchema.Argument, default="./input.txt", man="""Caminho do arquivo de origem dos dados.""")
         self.define_flag(flag=Flags.OUTPUT_FILE, schema=FlagSchema.Argument, default="./output.ini", man="""Caminho onde o arquivo .ini será gerado.""")
-        self.define_flag(flag=Flags.READ_ENCODING, schema=FlagSchema.Argument, default="utf-8", man="Codificação do arquivo lido por '--input'")
+        self.define_flag(flag=Flags.READ_ENCODING, schema=FlagSchema.Argument, default="utf-8", man=f"Codificação do arquivo lido por '--{Flags.INPUT_FILE}'")
         self.define_flag(flag=Flags.WRITE_ENCODING, schema=FlagSchema.Argument, default="utf-8", man="Codificação do arquivos gerados.")
         self.define_flag(flag=Flags.SORT, schema=FlagSchema.NoArgument, default=False, man="""Ordena as contas no arquivo final. Caso não presente preservará a ordem das linhas do input.""")
         self.define_flag(flag=Flags.SORT_BY, schema=FlagSchema.Argument, default="ramal", man="""Define qual coluna será usada para ordenação alfabética.""")
@@ -171,14 +174,12 @@ class Config:
         self._validate_setting(setting)
 
         if setting == Flags.DENY_INCOMING:
-            valid_values = ["all", "no", "server", "user", "button"]
-            if not value in valid_values:
-                error_msg = f"Valor '{value}' inválido para '--{setting.to_str()}'. Valores válidos: {', '.join(valid_values)}."
+            if not value in VALID_DENY_INCOMING_VALUES:
+                error_msg = f"Valor '{value}' inválido para '--{setting.to_str()}'. Valores válidos: {', '.join(VALID_DENY_INCOMING_VALUES)}."
                 raise ValueError(error_msg)
         if setting == Flags.AUTO_ANSWER:
-            valid_values = ["all", "no", "button"]
-            if not value in valid_values:
-                error_msg = f"Valor '{value}' inválido para '--{setting.to_str()}'. Valores válidos: {', '.join(valid_values)}."
+            if not value in VALID_AUTO_ANSWER_VALUES:
+                error_msg = f"Valor '{value}' inválido para '--{setting.to_str()}'. Valores válidos: {', '.join(VALID_DENY_INCOMING_VALUES)}."
                 raise ValueError(error_msg)
         self.flags[setting]["value"] = value
     
@@ -259,6 +260,12 @@ def main():
         id += 1
 
     output_file.write_text(result, encoding=config.get(Flags.WRITE_ENCODING))
+
+    if "$password" in result:
+        print("O arquivo gerado tem contas sem senha definida.")
+    if "$server" in result:
+        print("O arquivo gerado tem contas sem servidor definido.")
+
     print(f"Sucesso: {id-1} contas criadas em '{output_file}'.")
 
 if __name__ == "__main__":
