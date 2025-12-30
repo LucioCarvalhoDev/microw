@@ -188,15 +188,7 @@ class Config:
         return self.flags[setting]["schema"]
 
 
-def main():
-    config = Config()
-    config.load_args(sys.argv[1:])
-    
-    if config.get(Flags.HELP):
-        print(config.generate_flags_man())
-        return
-
-    output_file = Path(config.get(Flags.OUTPUT_FILE))
+def parse_data_to_accounts(config: Config) -> list[dict[str, str]]:
     input_file = Path(config.get(Flags.INPUT_FILE))
     if not input_file.exists():
         error_msg = f"Arquivo de input especificado '{input_file.name}' não encontrado."
@@ -231,6 +223,9 @@ def main():
         accounts_settings.append(account_data)
     
     if config.get(Flags.SORT) : accounts_settings.sort(key=lambda account : account[config.get(Flags.SORT_BY)])
+    return accounts_settings
+
+def build_content(config: Config, accounts_settings: list[dict[str, str]]) -> str:
     result = f"[Settings]\ndenyIncoming={config.get(Flags.DENY_INCOMING)}\nautoAnswer={config.get(Flags.AUTO_ANSWER)}\n\n"
 
     if config.get(Flags.ADD_GHOST):
@@ -259,14 +254,19 @@ def main():
         result = result.replace("Account_", f"Account{id}", 1)
         id += 1
 
-    output_file.write_text(result, encoding=config.get(Flags.WRITE_ENCODING))
+    return result
 
-    if "$password" in result:
-        print("O arquivo gerado tem contas sem senha definida.")
-    if "$server" in result:
-        print("O arquivo gerado tem contas sem servidor definido.")
-
-    print(f"Sucesso: {id-1} contas criadas em '{output_file}'.")
 
 if __name__ == "__main__":
-    main()
+    config = Config()
+    config.load_args(sys.argv[1:])
+    
+    if config.get(Flags.HELP):
+        print(config.generate_flags_man())
+        sys.exit(0)
+    
+    accounts = parse_data_to_accounts(config)
+    output_file = Path(config.get(Flags.OUTPUT_FILE))
+    content = build_content(config, accounts)
+    output_file.write_text(content, encoding=config.get(Flags.WRITE_ENCODING))
+    print(f"Sucesso: {len(accounts)} contas criadas em '{output_file}'.")

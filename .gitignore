@@ -1,7 +1,6 @@
-<<<<<<< HEAD
 *.txt
 *.ini
-=======
-/input.txt
-/output.ini
->>>>>>> 5fc69061aeadf08d529cc9341b46547ae9bb0ee3
+/dist/
+/build/
+__pycache__/
+/.venv/
